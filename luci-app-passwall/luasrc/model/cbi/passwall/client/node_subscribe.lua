@@ -1,4 +1,5 @@
 local api = require "luci.passwall.api"
+local uci = api.uci
 local appname = "passwall"
 local has_ss = api.is_finded("ss-redir")
 local has_ss_rust = api.is_finded("sslocal")
@@ -45,10 +46,6 @@ end
 
 m = Map(appname)
 
--- [[ Subscribe Settings ]]--
-s = m:section(TypedSection, "global_subscribe", "")
-s.anonymous = true
-
 function m.commit_handler(self)
 	if self.no_commit then
 		return
@@ -57,6 +54,21 @@ function m.commit_handler(self)
 		self:del(e[".name"], "md5")
 	end)
 end
+
+if api.is_js_luci() then
+	m.apply_on_parse = false
+	m.on_after_apply = function(self)
+		uci:foreach(appname, "subscribe_list", function(e)
+			uci:delete(appname, e[".name"], "md5")
+		end)
+		uci:commit(appname)
+		api.showMsg_Redirect()
+	end
+end
+
+-- [[ Subscribe Settings ]]--
+s = m:section(TypedSection, "global_subscribe", "")
+s.anonymous = true
 
 o = s:option(ListValue, "filter_keyword_mode", translate("Filter keyword Mode"))
 o:value("0", translate("Close"))
@@ -125,7 +137,7 @@ o:value("ipv6_only", translate("IPv6 Only"))
 o = s:option(Button, "_stop", translate("Delete All Subscribe Node"))
 o.inputstyle = "remove"
 function o.write(e, e)
-	luci.sys.call("lua /usr/share/" .. appname .. "/subscribe.lua truncate all-node > /dev/null 2>&1")
+	luci.sys.call("lua /usr/share/" .. appname .. "/subscribe.lua truncate > /dev/null 2>&1")
 	m.no_commit = true
 end
 
