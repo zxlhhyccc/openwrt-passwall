@@ -19,6 +19,9 @@ msgstr "连接失败"
 msgid "Touch Check"
 msgstr "点我检测"
 
+msgid "TLS handshake test, latency for reference only"
+msgstr "TLS握手测试，延时仅供参考"
+
 msgid "Kernel Unsupported"
 msgstr "内核不支持"
 
@@ -121,8 +124,8 @@ msgstr "DNS分流"
 msgid "Domestic group name"
 msgstr "国内分组名"
 
-msgid "You only need to configure domestic DNS packets in SmartDNS and set it redirect or as Dnsmasq upstream, and fill in the domestic DNS group name here."
-msgstr "您只需要在SmartDNS配置好国内DNS分组，并设置重定向或作为Dnsmasq上游，此处填入国内DNS分组名。"
+msgid "You only need to configure domestic DNS packets in SmartDNS, and fill in the domestic DNS group name here."
+msgstr "您只需要在SmartDNS配置好国内DNS分组，并在此处填入国内DNS分组名。"
 
 msgid "Filter Mode"
 msgstr "过滤模式"
@@ -351,6 +354,9 @@ msgstr "客户端代理"
 
 msgid "When selected, devices in LAN can transparent proxy. Otherwise, it will not be proxy. But you can still use access control to allow the designated device to proxy."
 msgstr "当勾选时，局域网内的设备可以透明代理。否则，将不代理。但您仍然可以使用访问控制允许指定的设备代理。"
+
+msgid "Missing components, transparent proxy is unavailable."
+msgstr "缺少组件，透明代理不可用。"
 
 msgid "Want different devices to use different proxy modes/ports/nodes? Please use access control."
 msgstr "希望不同设备使用不同的代理模式/端口/节点？请使用访问控制。"
@@ -670,6 +676,9 @@ msgstr "自动检测延迟"
 msgid "Show server address and port"
 msgstr "显示服务器地址和端口"
 
+msgid "URL Test Address"
+msgstr "URL 测试地址"
+
 msgid "URL Test"
 msgstr "URL 测试"
 
@@ -771,6 +780,9 @@ msgstr "常用的"
 
 msgid "Only Web"
 msgstr "仅网页"
+
+msgid "default"
+msgstr "默认"
 
 msgid "Default"
 msgstr "默认"
@@ -1005,6 +1017,9 @@ msgstr "从 Geo 文件生成规则"
 
 msgid "Generate rule lists such as GFW, China domains, and China IP ranges based on Geo files."
 msgstr "根据 Geo 文件生成规则列表，包括 GFW、中国域名和中国 IP 段等。"
+
+msgid "When manually updating with this option enabled, rules will be regenerated from existing Geo files even if no new version is available."
+msgstr "启用此选项后手动更新时,即使没有新版本也会从现有 Geo 文件重新生成规则。"
 
 msgid "Enable Geo Data Parsing"
 msgstr "开启 Geo 数据解析"
@@ -1258,8 +1273,20 @@ msgstr "完整匹配: 由'full:'开始，余下部分是一个域名。当此域
 msgid "Pre-defined domain list: Begining with 'geosite:' and the rest is a name, such as geosite:google or geosite:cn."
 msgstr "预定义域名列表：由'geosite:'开头，余下部分是一个名称，如geosite:google或者geosite:cn。"
 
+msgid "Sing-Box is compatible with Geo rules and rule-set. rule-set begin with 'rule-set:remote:' or 'rule-set:local:'."
+msgstr "Sing-Box 可兼容 Geo 规则和规则集，规则集由 'rule-set:remote:' 或 'rule-set:local:' 开始。"
+
+msgid "Such as:"
+msgstr "例如："
+
 msgid "Annotation: Begining with #"
 msgstr "注释: 由 # 开头"
+
+msgid "Invert match result."
+msgstr "反选匹配结果。"
+
+msgid "Only support Sing-Box."
+msgstr "只支持 Sing-Box。"
 
 msgid "IP: such as '127.0.0.1'."
 msgstr "IP: 形如'127.0.0.1'。"
@@ -1468,8 +1495,8 @@ msgstr "节点数量"
 msgid "You can only set up a maximum of %s nodes for the time being, Used for access control."
 msgstr "目前最多只能设置 %s 个节点，用于给访问控制使用。"
 
-msgid "Firewall tools"
-msgstr "防火墙工具"
+msgid "Prefer firewall tools"
+msgstr "首选防火墙工具"
 
 msgid "IPv6 TProxy"
 msgstr "IPv6 透明代理(TProxy)"
@@ -1906,9 +1933,6 @@ msgstr "是否要恢复客户端默认配置？"
 msgid "Are you sure you want to restore the client to default settings?"
 msgstr "是否真的要恢复客户端默认配置？"
 
-msgid "Settings have been successfully saved and applied!"
-msgstr "设置已成功保存并应用!"
-
 msgid "_urltest"
 msgstr "URLTest"
 
@@ -1971,6 +1995,9 @@ msgstr "请输入查询内容！"
 
 msgid "No results were found!"
 msgstr "未找到任何结果！"
+
+msgid "Rules containing this value:"
+msgstr "所在规则列表："
 
 msgid "Domain/IP Query"
 msgstr "域名/IP 查询"
