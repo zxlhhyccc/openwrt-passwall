@@ -1,5 +1,5 @@
 <%
-local api = require "luci.passwall.api"
+local api = self.api
 -%>
 <style>
  #cbi-<%=api.appname%>-socks .td.cbi-value-field > div { 
@@ -13,6 +13,27 @@ local api = require "luci.passwall.api"
 </style>
 <script type="text/javascript">
 	//<![CDATA[
+	function to_edit_node(btn) {
+		if (!btn) return;
+		const idReg = /^cbid\.<%=api.appname%>\..*node$/;
+		let hidden_select = null;
+		const container = btn.closest('#cbi-<%=api.appname%>-global') || btn.closest('#cbi-<%=api.appname%>-socks');
+		if (!container) return null;
+		const selects = container.querySelectorAll('select[id^="cbid.<%=api.appname%>."]');
+		for (const sel of selects) {
+			if ( idReg.test(sel.id) && getComputedStyle(sel).display === "none" && (sel.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+				hidden_select = sel;
+			}
+		}
+		if (!hidden_select) return;
+		let node_select_value = hidden_select ? hidden_select.options[0].value : "";
+		let to_url = '<%=api.url("edit_node")%>?section=' + node_select_value;
+		if (node_select_value.indexOf("Socks_") === 0) {
+			to_url = '<%=api.url("socks_config")%>/' + node_select_value.substring("Socks_".length);
+		}
+		location.href = to_url;
+	}
+
 	function go() {
 		var _status = document.getElementsByClassName('_status');
 		for (var i = 0; i < _status.length; i++) {
@@ -62,15 +83,11 @@ local api = require "luci.passwall.api"
 				var cbid = el.id.replace(/\.main$/, "");
 				var hidden_select = document.getElementById(cbid);
 				var node_select_value = hidden_select ? hidden_select.options[0].value : "";
-				if (!node_select_value || node_select_value.indexOf("_default") === 0 || node_select_value.indexOf("_direct") === 0 || node_select_value.indexOf("_blackhole") === 0) {
+				if (!node_select_value || node_select_value === "" || node_select_value.indexOf("tcp") === 0) {
 					continue;
 				}
 
-				var to_url = '<%=api.url("node_config")%>/' + node_select_value;
-				if (node_select_value.indexOf("Socks_") === 0) {
-					to_url = '<%=api.url("socks_config")%>/' + node_select_value.substring("Socks_".length);
-				}
-				var html = '<a href="#" onclick="location.href=\'' + to_url + '\'"><%:Edit%></a>';
+				var html = '<a href="#" onclick="return to_edit_node(this);"><%:Edit%></a>';
 
 				var m = cbid.match(/\.(tcp|udp)_node$/);
 				if (m && (m[1] === "tcp" || m[1] === "udp")) {
@@ -102,18 +119,13 @@ local api = require "luci.passwall.api"
 					var node_select = document.getElementById(dom_id);
 					if (!node_select) continue;
 
-					var hidden_select = document.getElementById(cbid);;
-					var node_select_value = hidden_select ? hidden_select.options[0].value : "";
-					if (node_select_value && node_select_value != "") {
-						var to_url = '<%=api.url("node_config")%>/' + node_select_value;
-						var html = '<a href="#" onclick="location.href=\'' + to_url + '\'"><%:Edit%></a>';
-						html += '<a href="#" onclick="window.open(\'' + '<%=api.url("get_socks_log")%>?name=' + id.replace("cbi-passwall-", "") + '\', \'_blank\')"><%:Log%></a>';
+					var html = '<a href="#" onclick="return to_edit_node(this);"><%:Edit%></a>';
+					html += '<a href="#" onclick="window.open(\'' + '<%=api.url("get_socks_log")%>?name=' + id.replace("cbi-passwall-", "") + '\', \'_blank\')"><%:Log%></a>';
 
-						node_select.insertAdjacentHTML("afterend",
-							'<div class="node-actions" style="display:inline-flex; align-items:center; gap:4px; flex-wrap:wrap; margin-left:4px;">'  
-							+ html + '</div>'
-						);
-					}
+					node_select.insertAdjacentHTML("afterend",
+						'<div class="node-actions" style="display:inline-flex; align-items:center; gap:4px; flex-wrap:wrap; margin-left:4px;">'  
+						+ html + '</div>'
+					);
 				} catch(err) {
 				}
 			}

@@ -104,6 +104,7 @@
 	box-shadow: 0 6px 18px rgba(0,0,0,0.08);
 	max-height: 50vh;
 	overflow: auto;
+	overscroll-behavior: contain;
 }
 .lv-dropdown-search {
 	width: 100%;
@@ -333,7 +334,7 @@
 					span.style.color = "#007bff";
 					span.style.fontWeight = "600";
 				} else {
-					span.style.color = "#666";
+					span.style.color = "";
 					span.style.fontWeight = "normal";
 				}
 			}
@@ -590,7 +591,7 @@
 					<span class="lv-arrow-right" id="arrow-${cbid}-${lv_idSafe(gname)}"></span>
 					<b style="margin-left:6px;">${lv_escape_html(gname)}</b>
 					<span id="group-count-${cbid}-${lv_idSafe(gname)}"
-						style="margin-left:8px;color:#666;">(0/${items.length})</span>
+						style="margin-left:8px;">(0/${items.length})</span>
 				</div>
 				<ul id="group-${cbid}-${lv_idSafe(gname)}" class="lv-group-list" style="display:none">
 			`;
@@ -669,6 +670,25 @@
 				}
 			});
 		});
+
+		// 防止 panel 惯性滚动穿透
+		panel.addEventListener('wheel', function (e) {
+			const deltaY = e.deltaY;
+			const scrollTop = panel.scrollTop;
+			const scrollHeight = panel.scrollHeight;
+			const clientHeight = panel.clientHeight;
+			const isAtTop = scrollTop === 0;
+			const isAtBottom = scrollTop + clientHeight >= scrollHeight;
+			if (deltaY < 0 && isAtTop) {
+				e.preventDefault();
+				return;
+			}
+			if (deltaY > 0 && isAtBottom) {
+				e.preventDefault();
+				return;
+			}
+			e.stopPropagation();
+		}, { passive: false });
 	}
 
 	const lv_adaptiveControls = new Set();
