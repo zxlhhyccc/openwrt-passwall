@@ -300,7 +300,7 @@ run_dns2socks() {
 	eval_set_val "$@"
 	[ -n "$flag" ] && flag="_${flag}"
 	[ -n "$log_file" ] || log_file="/dev/null"
-	dns=$(get_first_dns dns 53 | sed 's/#/:/g')
+	dns=$(format_dns $dns 53)
 	[ -n "$socks" ] && {
 		socks="${socks//#/:}"
 		socks_address=$(echo $socks | awk -F ':' '{print $1}')
@@ -1047,7 +1047,7 @@ start_dns() {
 	echolog "DNS域名解析："
 
 	local china_ng_local_dns=$(IFS=','; set -- $LOCAL_DNS; [ "${1%%[#:]*}" = "127.0.0.1" ] && echo "$1" || ([ -n "$2" ] && echo "$*" || echo "$1"))
-	local sing_box_local_dns=
+	local v2ray_local_dns
 	local direct_dns_mode=$(config_n_get @global[0] direct_dns_mode "auto")
 
 	#获取访问控制节点所使用的DNS分流模式
@@ -1064,19 +1064,18 @@ start_dns() {
 		udp)
 			LOCAL_DNS=$(normalize_dns "$(config_n_get @global[0] direct_dns 223.5.5.5:53)")
 			china_ng_local_dns=${LOCAL_DNS}
-			sing_box_local_dns="direct_dns_udp_server=${LOCAL_DNS}"
+			v2ray_local_dns="direct_dns_udp_server=${LOCAL_DNS}"
 		;;
 		tcp)	
 			local DIRECT_DNS=$(normalize_dns "$(config_n_get @global[0] direct_dns 223.5.5.5:53)")
 			china_ng_local_dns="tcp://${DIRECT_DNS}"
-			sing_box_local_dns="direct_dns_tcp_server=${DIRECT_DNS}"
+			v2ray_local_dns="direct_dns_tcp_server=${DIRECT_DNS}"
 
 			#当全局（包括访问控制节点）开启chinadns-ng时，不启动新进程。
 			[ "$DNS_SHUNT" != "chinadns-ng" ] || [ "$ACL_RULE_DNSMASQ" = "1" ] && {
 				LOCAL_DNS="127.0.0.1#${NEXT_DNS_LISTEN_PORT}"
-				local china_ng_c_dns="tcp://$(get_first_dns DIRECT_DNS 53)"
-				ln_run "$(first_type chinadns-ng)" chinadns-ng "/dev/null" -b :: -l ${NEXT_DNS_LISTEN_PORT} -c ${china_ng_c_dns} -d chn
-				echolog "  - ChinaDNS-NG(${LOCAL_DNS}) -> ${china_ng_c_dns}"
+				ln_run "$(first_type chinadns-ng)" chinadns-ng "/dev/null" -b :: -l ${NEXT_DNS_LISTEN_PORT} -c ${china_ng_local_dns} -d chn
+				echolog "  - ChinaDNS-NG(${LOCAL_DNS}) -> ${china_ng_local_dns}"
 				echolog "  * 请确保上游直连 DNS 支持 TCP 查询。"
 				NEXT_DNS_LISTEN_PORT=$(expr $NEXT_DNS_LISTEN_PORT + 1)
 			}
@@ -1107,9 +1106,8 @@ start_dns() {
 	case "$DNS_MODE" in
 	dns2socks)
 		local dns2socks_socks_server=$(echo $(config_n_get @global[0] socks_server 127.0.0.1:1080) | sed "s/#/:/g")
-		local dns2socks_forward=$(get_first_dns REMOTE_DNS 53 | sed 's/#/:/g')
-		run_dns2socks socks=$dns2socks_socks_server listen_address=127.0.0.1 listen_port=${NEXT_DNS_LISTEN_PORT} dns=$dns2socks_forward cache=$DNS_CACHE
-		echolog "  - dns2socks(${TUN_DNS})，${dns2socks_socks_server} -> tcp://${dns2socks_forward}"
+		run_dns2socks socks=$dns2socks_socks_server listen_address=127.0.0.1 listen_port=${NEXT_DNS_LISTEN_PORT} dns=$REMOTE_DNS cache=$DNS_CACHE
+		echolog "  - dns2socks(${TUN_DNS})，${dns2socks_socks_server} -> tcp://${REMOTE_DNS}"
 	;;
 	sing-box)
 		[ -z "${NO_PLUGIN_DNS}" ] && {
@@ -1150,7 +1148,7 @@ start_dns() {
 				;;
 			esac
 			_args="${_args} dns_socks_address=127.0.0.1 dns_socks_port=${GLOBAL_SOCKS_port}"
-			[ -n "${sing_box_local_dns}" ] && _args="${_args} ${sing_box_local_dns}"
+			[ -n "${v2ray_local_dns}" ] && _args="${_args} ${v2ray_local_dns}"
 			run_singbox ${_args}
 		}
 	;;
@@ -1189,13 +1187,14 @@ start_dns() {
 				;;
 			esac
 			_args="${_args} dns_socks_address=127.0.0.1 dns_socks_port=${GLOBAL_SOCKS_port}"
+			[ -n "${v2ray_local_dns}" ] && _args="${_args} ${v2ray_local_dns}"
 			run_xray ${_args}
 		}
 	;;
 	udp)
 		UDP_PROXY_DNS=1
 		local china_ng_listen_port=${NEXT_DNS_LISTEN_PORT}
-		local china_ng_trust_dns="udp://$(get_first_dns REMOTE_DNS 53)"
+		local china_ng_trust_dns="udp://${REMOTE_DNS}"
 		if [ "$DNS_SHUNT" != "chinadns-ng" ] && [ "$FILTER_PROXY_IPV6" = "1" ]; then
 			DNSMASQ_FILTER_PROXY_IPV6=0
 			local no_ipv6_trust="-N"
@@ -1209,7 +1208,7 @@ start_dns() {
 	tcp)
 		TCP_PROXY_DNS=1
 		local china_ng_listen_port=${NEXT_DNS_LISTEN_PORT}
-		local china_ng_trust_dns="tcp://$(get_first_dns REMOTE_DNS 53)"
+		local china_ng_trust_dns="tcp://${REMOTE_DNS}"
 		[ "$DNS_SHUNT" != "chinadns-ng" ] && {
 			[ "$FILTER_PROXY_IPV6" = "1" ] && DNSMASQ_FILTER_PROXY_IPV6=0 && local no_ipv6_trust="-N"
 			ln_run "$(first_type chinadns-ng)" chinadns-ng "/dev/null" -b :: -l ${china_ng_listen_port} -t ${china_ng_trust_dns} -d gfw ${no_ipv6_trust}
@@ -1299,7 +1298,7 @@ start_dns() {
 		[ "$(check_ver "$dnsmasq_version" "2.87")" = "1" ] && echolog "Dnsmasq版本低于2.87，有可能无法正常使用！！！"
 	}
 
-	local DNSMASQ_TUN_DNS=$(get_first_dns TUN_DNS 53)
+	local DNSMASQ_TUN_DNS=$(normalize_dns $TUN_DNS 53)
 	local RUN_NEW_DNSMASQ=1
 	RUN_NEW_DNSMASQ=${DNS_REDIRECT}
 	if [ "${RUN_NEW_DNSMASQ}" = "0" ]; then
