@@ -150,16 +150,30 @@ run_singbox() {
 
 	[ -n "$remote_dns_query_strategy" ] && json_add_string "remote_dns_query_strategy" "${remote_dns_query_strategy}"
 	case "$remote_dns_protocol" in
-		udp|tcp)
-			local _proto="$remote_dns_protocol"
-			local _dns=$(get_first_dns remote_dns_${_proto}_server 53)
-			local _dns_address=$(echo ${_dns} | awk -F '#' '{print $1}')
-			local _dns_port=$(echo ${_dns} | awk -F '#' '{print $2}')
-			json_add_string "remote_dns_${_proto}_server" "${_dns_address}"
-			json_add_string "remote_dns_${_proto}_port" "${_dns_port}"
+		udp|quic)
+			local _dns_address=$(echo "$remote_dns_udp_server" | awk -F '#' '{print $1}')
+			local default_port=53
+			[ "$remote_dns_protocol" = "quic" ] && {
+				default_port=853
+				json_add_string "remote_dns_quic" "1"
+			}
+			local _dns_port=$(echo "$remote_dns_udp_server" | awk -F '#' -v def="$default_port" '{print ($2 ? $2 : def)}')
+			json_add_string "remote_dns_udp_server" "$_dns_address"
+			json_add_string "remote_dns_udp_port" "$_dns_port"
+		;;
+		tcp|tls)
+			local _dns_address=$(echo "$remote_dns_tcp_server" | awk -F '#' '{print $1}')
+			local default_port=53
+			[ "$remote_dns_protocol" = "tls" ] && {
+				default_port=853
+				json_add_string "remote_dns_tls" "1"
+			}
+			local _dns_port=$(echo "$remote_dns_tcp_server" | awk -F '#' -v def="$default_port" '{print ($2 ? $2 : def)}')
+			json_add_string "remote_dns_tcp_server" "$_dns_address"
+			json_add_string "remote_dns_tcp_port" "$_dns_port"
 		;;
 		doh|http3)
-			json_add_string "remote_dns_doh" "${remote_dns_doh}"
+			json_add_string "remote_dns_doh" "$remote_dns_doh"
 			[ "$remote_dns_protocol" = "http3" ] && json_add_string "remote_dns_http3" "1"
 		;;
 	esac
@@ -245,13 +259,17 @@ run_xray() {
 	[ -n "$dns_cache" ] && json_add_string "dns_cache" "${dns_cache}"
 
 	case "$remote_dns_protocol" in
-		udp|tcp)
-			local _proto="$remote_dns_protocol"
-			local _dns=$(get_first_dns remote_dns_${_proto}_server 53)
-			local _dns_address=$(echo ${_dns} | awk -F '#' '{print $1}')
-			local _dns_port=$(echo ${_dns} | awk -F '#' '{print $2}')
-			json_add_string "remote_dns_${_proto}_server" "${_dns_address}"
-			json_add_string "remote_dns_${_proto}_port" "${_dns_port}"
+		udp)
+			local _dns_address=$(echo "$remote_dns_udp_server" | awk -F '#' '{print $1}')
+			local _dns_port=$(echo "$remote_dns_udp_server" | awk -F '#' '{print ($2 ? $2 : 53)}')
+			json_add_string "remote_dns_udp_server" "$_dns_address"
+			json_add_string "remote_dns_udp_port" "$_dns_port"
+		;;
+		tcp)
+			local _dns_address=$(echo "$remote_dns_tcp_server" | awk -F '#' '{print $1}')
+			local _dns_port=$(echo "$remote_dns_tcp_server" | awk -F '#' '{print ($2 ? $2 : 53)}')
+			json_add_string "remote_dns_tcp_server" "$_dns_address"
+			json_add_string "remote_dns_tcp_port" "$_dns_port"
 		;;
 		doh)
 			json_add_string "remote_dns_doh" "${remote_dns_doh}"
@@ -601,7 +619,6 @@ start_global() {
 		local v2ray_dns_mode=$(config_n_get @global[0] v2ray_dns_mode tcp)
 		[ "${DNS_MODE}" != "sing-box" ] && [ "$protocol" = "_shunt" ] && {
 			DNS_MODE="sing-box"
-			[ "$v2ray_dns_mode" = "tcp+doh" ] && v2ray_dns_mode="tcp"
 		}
 
 		[ "$protocol" = "_shunt" ] && {
@@ -637,10 +654,13 @@ start_global() {
 
 			_args="${_args} remote_dns_protocol=${v2ray_dns_mode}"
 			case "$v2ray_dns_mode" in
-				udp|tcp)
-					local _proto="$v2ray_dns_mode"
-					_args="${_args} remote_dns_${_proto}_server=${REMOTE_DNS}"
-					resolve_dns_log="Sing-Box DNS(127.0.0.1#${resolve_dns_port}) -> ${_proto}://${REMOTE_DNS}"
+				udp|quic)
+					_args="${_args} remote_dns_udp_server=${REMOTE_DNS}"
+					resolve_dns_log="Sing-Box DNS(127.0.0.1#${resolve_dns_port}) -> ${v2ray_dns_mode}://${REMOTE_DNS}"
+				;;
+				tcp|tls)
+					_args="${_args} remote_dns_tcp_server=${REMOTE_DNS}"
+					resolve_dns_log="Sing-Box DNS(127.0.0.1#${resolve_dns_port}) -> ${v2ray_dns_mode}://${REMOTE_DNS}"
 				;;
 				doh|http3)
 					local remote_dns_doh=$(config_n_get @global[0] remote_dns_doh "https://1.1.1.1/dns-query")
@@ -677,7 +697,11 @@ start_global() {
 		local v2ray_dns_mode=$(config_n_get @global[0] v2ray_dns_mode tcp)
 		[ "${DNS_MODE}" != "xray" ] && [ "$protocol" = "_shunt" ] && {
 			DNS_MODE="xray"
-			[ "$v2ray_dns_mode" = "http3" ] && v2ray_dns_mode="tcp"
+			case "$v2ray_dns_mode" in http3|tls|quic)
+				v2ray_dns_mode="tcp"
+				REMOTE_DNS="1.1.1.1#53"
+				;;
+			esac
 		}
 
 		[ "$protocol" = "_shunt" ] && {
@@ -1111,10 +1135,13 @@ start_dns() {
 			_args="${_args} dns_listen_port=${NEXT_DNS_LISTEN_PORT}"
 			_args="${_args} remote_dns_protocol=${v2ray_dns_mode}"
 			case "$v2ray_dns_mode" in
-				udp|tcp)
-					local _proto="$v2ray_dns_mode"
-					_args="${_args} remote_dns_${_proto}_server=${REMOTE_DNS}"
-					echolog "  - Sing-Box DNS(${TUN_DNS}) -> ${_proto}://${REMOTE_DNS}"
+				udp|quic)
+					_args="${_args} remote_dns_udp_server=${REMOTE_DNS}"
+					echolog "  - Sing-Box DNS(${TUN_DNS}) -> ${v2ray_dns_mode}://${REMOTE_DNS}"
+				;;
+				tcp|tls)
+					_args="${_args} remote_dns_tcp_server=${REMOTE_DNS}"
+					echolog "  - Sing-Box DNS(${TUN_DNS}) -> ${v2ray_dns_mode}://${REMOTE_DNS}"
 				;;
 				doh|http3)
 					local remote_dns_doh=$(config_n_get @global[0] remote_dns_doh "https://1.1.1.1/dns-query")
@@ -1448,7 +1475,13 @@ acl_app() {
 							fi
 							([ "$type" = "sing-box" ] || [ "$type" = "xray" ]) && [ "$protocol" = "_shunt" ] && [ "$type" != "$dns_mode" ] && {
 								dns_mode=$type
-								[ "$type" = "xray" ] && [ "$v2ray_dns_mode" = "http3" ] && v2ray_dns_mode="tcp"
+								[ "$type" = "xray" ] && {
+									case "$v2ray_dns_mode" in http3|tls|quic)
+										v2ray_dns_mode="tcp"
+										remote_dns="1.1.1.1#53"
+										;;
+									esac
+								}
 							}
 							dns_cache_key="${dns_mode}_${remote_dns}_${v2ray_dns_mode:-none}_${remote_dns_client_ip:-0}_${remote_fakedns:-0}_${remote_rewrite_ttl:-30}"
 							([ "$v2ray_dns_mode" = "doh" ] || [ "$v2ray_dns_mode" = "http3" ]) && {
@@ -1763,7 +1796,7 @@ get_config() {
 	[ -z "$(first_type $DNS_SHUNT)" ] && DNS_SHUNT="dnsmasq"
 	DNS_MODE=$(config_n_get @global[0] dns_mode tcp)
 	[ "$DNS_SHUNT" = "smartdns" ] && DNS_MODE=$(config_n_get @global[0] smartdns_dns_mode socks)
-	REMOTE_DNS=$(normalize_dns "$(config_n_get @global[0] remote_dns 1.1.1.1:53)")
+	REMOTE_DNS=$(normalize_dns "$(config_n_get @global[0] remote_dns 1.1.1.1)")
 	USE_DEFAULT_DNS=$(config_n_get @global[0] use_default_dns direct)
 	FILTER_PROXY_IPV6=$(config_n_get @global[0] filter_proxy_ipv6 0)
 	DNS_REDIRECT=$(config_n_get @global[0] dns_redirect 1)
